@@ -2,7 +2,7 @@
 
 require_once 'conexion.php';
 
-//ESTA FUNCION SOLO SE UTILIZA CON POST
+//Registro
 function crearCliente($email, $password, $nick){
     try{
         if($email === null || $password === null || $nick === null){
@@ -10,13 +10,27 @@ function crearCliente($email, $password, $nick){
             echo json_encode([
                 'success'=>false,
                 'mensaje'=>'faltan datos obligatorios',
-                'email' => $email,
-                'password' => $password,
-                'nick' => $nick
             ]);
             exit;
         }
         global $conn; //conexion con la base de datos, definida en el fichero conexion.php
+
+        //compruebo si ya existe ese email
+        $queryComprobatoria = $conn->prepare("SELECT * FROM clientes where email = ?");
+        $queryComprobatoria->bind_param("s", $email);
+        $queryComprobatoria->execute();
+        $resultadoComprobatorio = $queryComprobatoria->get_result();
+
+        if($resultadoComprobatorio -> num_rows > 0){
+            http_response_code(400);
+            echo json_encode([
+                'success'=>false,
+                'mensaje'=>'Ese email ya esta siendo utilizado',
+            ]);
+            exit;
+        }
+
+
         $query = $conn->prepare("INSERT INTO clientes (email, password, nick) values (?, ?, ?)");
 
         if(!$query){
@@ -50,7 +64,6 @@ function crearCliente($email, $password, $nick){
     }
 }
 
-//FUNCION PARA USAR SOLO CON GET
 function mostrarUsuarios($email, $password){
 
     if($email === null || $password === null){
@@ -63,8 +76,9 @@ function mostrarUsuarios($email, $password){
     }
 
     try{
+        $nick = '';
         global $conn; //conexion con la base de datos, definida en el fichero conexion.php
-        $query = $conn->prepare("SELECT password from clientes where email = ?");
+        $query = $conn->prepare("SELECT password, nick from clientes where email = ?");
         $query->bind_param("s", $email);
         $query->execute();
         $result = $query->get_result();
@@ -86,7 +100,13 @@ function mostrarUsuarios($email, $password){
             echo json_encode([
                 'success'=>true,
                 'mensaje'=>'el proceso se ha completado satisfactoriamente',
-                'bienvenida'=>'bienvenido ' . $nick
+                'nick'=> $nick 
+            ]);
+            }else{
+            http_response_code(401);        
+            echo json_encode([
+                'success'=>false,
+                'mensaje'=>'credenciales incorrectas',
             ]);
             }
         }
